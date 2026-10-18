@@ -1,13 +1,44 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sauna 3D</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sauna · Modelo 3D</title>
 <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.1.0/model-viewer.min.js"></script>
-<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#fff}model-viewer{width:100%;height:100%;background:#fff}</style>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:white;font-family:system-ui,-apple-system,sans-serif}
+model-viewer{width:100%;height:100%;background:#fff}
+#status{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;color:#333;padding:12px 18px;text-align:center;border-radius:8px;font-size:14px;box-shadow:0 2px 15px #0001;pointer-events:none}
+#status[hidden]{display:none}
+</style>
 </head>
 <body>
-<model-viewer src="sauna.glb" alt="Modelo 3D de sauna" camera-controls interaction-prompt="none" shadow-intensity="1" environment-image="neutral" exposure="1" camera-orbit="45deg 70deg auto"></model-viewer>
+<model-viewer id="viewer" alt="Modelo 3D de sauna" camera-controls touch-action="pan-y" interaction-prompt="none" shadow-intensity="1" environment-image="neutral" exposure="1" auto-rotate-delay="0" camera-orbit="45deg 70deg auto"></model-viewer>
+<div id="status">Cargando modelo 3D…</div>
+<script>
+(async () => {
+  const status = document.getElementById('status');
+  const viewer = document.getElementById('viewer');
+  try {
+    if (!('DecompressionStream' in window)) throw new Error('Este navegador no admite descompresión gzip. Actualiza Safari o utiliza Chrome.');
+    const response = await fetch('./sauna.glb.gz?v=20261018-muevo');
+    if (!response.ok) throw new Error('No se encuentra sauna.glb.gz (HTTP ' + response.status + '). Comprueba que esté junto a index.html.');
+    const bytes = await response.arrayBuffer();
+    const b = new Uint8Array(bytes);
+    // Some servers may transparently decompress .gz files.
+    const isGzip = b.length > 2 && b[0] === 0x1f && b[1] === 0x8b;
+    const glb = isGzip ? await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer() : bytes;
+    const magic = new DataView(glb).getUint32(0, true);
+    if (magic !== 0x46546c67) throw new Error('El archivo descargado no contiene un modelo GLB válido.');
+    const objectURL = URL.createObjectURL(new Blob([glb], {type:'model/gltf-binary'}));
+    viewer.addEventListener('load', () => { status.hidden = true; }, {once:true});
+    viewer.addEventListener('error', () => { status.textContent = 'Error al mostrar el modelo 3D.'; }, {once:true});
+    viewer.src = objectURL;
+  } catch (error) {
+    console.error(error);
+    status.textContent = 'No se pudo abrir el modelo: ' + error.message;
+  }
+})();
+</script>
 </body>
 </html>
